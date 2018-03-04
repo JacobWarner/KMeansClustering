@@ -7,6 +7,6 @@ To run the default settings, run:
 
 	java -cp "jcommon.jar:jfreechart.jar:weka.jar:" -jar KMeansClustering.jar
 	
-	which is equivalent to
+which is equivalent to
 	
 	java -cp "jcommon.jar:jfreechart.jar:weka.jar:" -jar KMeansClustering.jar 3 0.0001 100 y n trainBig.arff
