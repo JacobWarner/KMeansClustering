@@ -1,10 +1,22 @@
 package com.company;
 
+import java.awt.*;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.sun.istack.internal.NotNull;
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartUtilities;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.axis.NumberAxis;
+import org.jfree.chart.axis.NumberTickUnit;
+import org.jfree.chart.plot.CategoryPlot;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.category.DefaultCategoryDataset;
 import weka.clusterers.SimpleKMeans;
 import weka.core.*;
 import weka.core.converters.ConverterUtils.DataSource;
@@ -15,9 +27,10 @@ public class Main {
     private static int numOfClusters = 3;
     private static double epsilon = 0.0001;
     private static int numIterations = 0;
-    private static int maxIterations = 500;
+    private static int maxIterations = 100;
     private static int seed = 10;
     private static boolean compareToWekaSimpleKMeans = true;
+    private static boolean createCharts = false;
 
     private static Instances clusterCentroids;
     private static Instances initialClusterCentroids;
@@ -32,10 +45,13 @@ public class Main {
     private static DataSource data = null;
     private static Instances instances = null;
 
+    private static BufferedWriter writer = null;
+
     public static void main(String[] args) throws Exception{
 
         // Handling input arguments
-        // java -cp "weka.jar" -jar KMeansClustering.jar 3 0.0001 100 n trainBig.arff
+        // java -cp "jcommon.jar:jfreechart.jar:weka.jar:" -jar KMeansClustering.jar 3 0.0001 100 y n trainBig.arff
+
         for (int i = 0; i < args.length; i++) {
             switch(i){
                 case 0:
@@ -62,11 +78,16 @@ public class Main {
                 case 3:
                     compareToWekaSimpleKMeans = args[3].equalsIgnoreCase("y");
                     if (!args[3].equalsIgnoreCase("y") && !args[3].equalsIgnoreCase("n")) {
-                        System.out.println("Invalid input for runtime testing. Using default answer (n).");
+                        System.out.println("Invalid input for Weka comparison. Using default answer (n).");
                     }
                     break;
                 case 4:
-                    inputFilePath = args[4];
+                    createCharts = args[4].equalsIgnoreCase("y");
+                    if (!args[4].equalsIgnoreCase("y") && !args[3].equalsIgnoreCase("n")) {
+                        System.out.println("Invalid input for runtime testing. Using default answer (n).");
+                    }
+                case 5:
+                    inputFilePath = args[5];
                     break;
             }
         }
@@ -78,15 +99,24 @@ public class Main {
             return;
         }
 
+        System.out.println("Running program...");
+
         String outputFilePath = inputFilePath.substring(0,inputFilePath.length()-5) + "Results.txt";
-        BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilePath, true));
+        writer = new BufferedWriter(new FileWriter(outputFilePath, true));
         writer.append("");
         writer.newLine();
 
         // Run clustering and algorithm
         KMeans();
 
-        writeResults(writer);
+        if (createCharts) {
+            testRuntimeOfProgram();
+        }
+
+        writeResults();
+        if (writer != null) {
+            writer.close();
+        }
 
         System.out.println("Program complete. You'll find the results in " + outputFilePath);
         System.out.println("Recommend NOT opening with regular Notepad. The formatting will be hard to read.");
@@ -330,7 +360,7 @@ public class Main {
         return (double)val;
     }
 
-    private static void writeResults(@NotNull BufferedWriter writer) throws Exception {
+    private static void writeResults() throws Exception {
         writer.append("Input file: ").append(inputFilePath);
         writer.newLine();
         writer.append("Number of instances: ").append(String.valueOf(numInstances));
@@ -394,7 +424,90 @@ public class Main {
             writer.append("========================================================================================================");
             writer.newLine();
         }
+    }
 
-        writer.close();
+    private static void testRuntimeOfProgram() throws Exception {
+        ConcurrentHashMap<Integer, Double> NumClustersVsRuntime = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Integer, Double> NumClustersVsSse = new ConcurrentHashMap<>();
+
+        int maxClusters = 30;
+        int minClusters = 1;
+        long startTime = 0;
+        long endTime = 0;
+        double timeInSeconds = 0;
+
+        while (minClusters <= maxClusters) {
+            numOfClusters = minClusters;
+
+            // Tracking runtime of KMeans (default epsilon = 0.0001 and maxIterations = 100)
+            startTime = System.nanoTime();
+            KMeans();
+            endTime = System.nanoTime();
+            timeInSeconds = ((double) (endTime-startTime)) / 1E9;
+            NumClustersVsRuntime.put(numOfClusters, timeInSeconds);
+            NumClustersVsSse.put(numOfClusters, SSE);
+
+            minClusters++;
+        }
+
+        createRuntimeChart(NumClustersVsRuntime, maxClusters);
+        createErrorToClustersChart(NumClustersVsSse, maxClusters);
+    }
+
+    private static void createRuntimeChart(ConcurrentHashMap<Integer, Double> NumClustersVsRuntime, int maxClusters) throws IOException {
+        DefaultCategoryDataset lineChartData = new DefaultCategoryDataset();
+
+        for (int i = 1; i <= maxClusters; i++) {
+
+            // Plotting runtime vs clusters
+            lineChartData.addValue(NumClustersVsRuntime.get(i), "Time", String.format("%d", i));
+
+        }
+
+        JFreeChart lineChartObject = ChartFactory.createLineChart(
+                "Runtime vs Num of Clusters","# Clusters",
+                "Runtime (seconds)",
+                lineChartData, PlotOrientation.VERTICAL,
+                false,false,false);
+
+        CategoryPlot plot = lineChartObject.getCategoryPlot();
+        NumberAxis range = (NumberAxis)plot.getRangeAxis();
+        range.setTickUnit(new NumberTickUnit(0.5));
+        range.setLowerBound(0.0);
+
+        lineChartObject.setBorderStroke(new BasicStroke(0.7f));
+
+        int width = 960;    /* Width of the image */
+        int height = 720;   /* Height of the image */
+        File lineChart = new File( "RuntimeVsClusterNumber.jpeg" );
+        ChartUtilities.saveChartAsJPEG(lineChart ,lineChartObject, width ,height);
+    }
+
+    private static void createErrorToClustersChart(ConcurrentHashMap<Integer, Double> NumClustersVsSse, int maxClusters) throws IOException {
+        DefaultCategoryDataset lineChartData = new DefaultCategoryDataset();
+
+        for (int i = 1; i <= maxClusters; i++) {
+
+            // Plotting runtime vs clusters
+            lineChartData.addValue(NumClustersVsSse.get(i), "SSE", String.format("%d", i));
+
+        }
+
+        JFreeChart lineChartObject = ChartFactory.createLineChart(
+                "SSE vs Num of Clusters","# Clusters",
+                "Sum of Squared Error",
+                lineChartData, PlotOrientation.VERTICAL,
+                false,false,false);
+
+        CategoryPlot plot = lineChartObject.getCategoryPlot();
+        NumberAxis range = (NumberAxis)plot.getRangeAxis();
+        range.setLowerBound(0.0);
+
+        lineChartObject.setBorderStroke(new BasicStroke(0.7f));
+
+        int width = 960;    /* Width of the image */
+        int height = 720;   /* Height of the image */
+        File lineChart = new File( "SseVsClusterNumber.jpeg" );
+        ChartUtilities.saveChartAsJPEG(lineChart ,lineChartObject, width ,height);
     }
 }

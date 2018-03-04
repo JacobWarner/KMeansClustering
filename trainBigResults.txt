@@ -1,0 +1,62 @@
+
+Input file: trainBig.arff
+Number of instances: 43500
+Number of attributes: 10
+Number of iterations: 7
+Number of clusters: 3
+
+Initial starting points:
+Cluster 0: 55,0,79,0,10,28,23,68,46,4
+Cluster 1: 48,0,106,0,46,-5,58,60,2,1
+Cluster 2: 51,-2,109,0,52,0,58,57,0,1
+
+NOTE: Our implementation and Weka will have the same starting clusters as long as we use the same seed for generating the random indices.
+
+Final cluster centroids:
+Cluster 0: 64.043441,4.242751,87.643096,0.101757,17.295462,-0.013474,23.461464,70.80802,47.27649,4
+Cluster 1: 44.301309,-0.662638,81.607502,-0.105735,39.961211,1.96412,37.335215,41.639607,4.514581,1
+Cluster 2: 42.171808,-5.449617,101.50645,2.53094,35.092915,-0.020938,59.277248,66.359319,7.20172,1
+
+Final cluster sizes: [9277.0, 28874.0, 5349.0]
+Individual cluster SSEs: [2958.6456257841005, 314.60858411556103, 88.86451995196252]
+Total sum of squared errors: 3362.118729851624
+
+======================================================
+WEKA
+======================================================
+
+kMeans
+======
+
+Number of iterations: 7
+Within cluster sum of squared errors: 3362.118729851624
+
+Initial starting points (random):
+
+Cluster 0: 55,0,79,0,10,28,23,68,46,4
+Cluster 1: 48,0,106,0,46,-5,58,60,2,1
+Cluster 2: 51,-2,109,0,52,0,58,57,0,1
+
+Missing values globally replaced with mean/mode
+
+Final cluster centroids:
+                       Cluster#
+Attribute   Full Data         0         1         2
+            (43500.0)  (9277.0) (28874.0)  (5349.0)
+===================================================
+a_0           48.2497   64.0434   44.3013   42.1718
+a_1           -0.2051    4.2428   -0.6626   -5.4496
+a_2           85.3416   87.6431   81.6075  101.5064
+a_3            0.2627    0.1018   -0.1057    2.5309
+a_4           34.5288   17.2955   39.9612   35.0929
+a_5            1.2983   -0.0135    1.9641   -0.0209
+a_6           37.0746   23.4615   37.3352   59.2772
+a_7           50.8999    70.808   41.6396   66.3593
+a_8           13.9646   47.2765    4.5146    7.2017
+class               1         4         1         1
+
+
+Difference between our SSE and Weka: 0.0
+========================================================================================================
+END OF PROGRAM RUN
+========================================================================================================
