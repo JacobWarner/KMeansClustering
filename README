@@ -1,1 +1,9 @@
-Hello!
+To start the program, run the following from the home directory via command line:
+
+		java -cp "weka.jar" -jar KMeansClustering.jar <numClusters> <epsilon> <maxIterations> <compareToWeka(y/n)> <inputFile>
+
+
+To run the default settings, run:
+
+		java -cp "weka.jar" -jar KMeansClustering.jar 3 0.0001 100 n trainBig.arff
+

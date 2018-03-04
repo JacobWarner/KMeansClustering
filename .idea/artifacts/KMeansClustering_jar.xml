@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="KMeansClustering:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/KMeansClustering_jar</output-path>
+    <root id="archive" name="KMeansClustering.jar">
+      <element id="module-output" name="KMeansClustering" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/weka.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

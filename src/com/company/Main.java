@@ -1,7 +1,10 @@
 package com.company;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.util.*;
 
+import com.sun.istack.internal.NotNull;
 import weka.clusterers.SimpleKMeans;
 import weka.core.*;
 import weka.core.converters.ConverterUtils.DataSource;
@@ -9,7 +12,6 @@ import weka.core.converters.ConverterUtils.DataSource;
 public class Main {
 
     private static String inputFilePath = "trainBig.arff";
-    private static String outputFilePath = "result.txt";
     private static int numOfClusters = 3;
     private static double epsilon = 0.0001;
     private static int numIterations = 0;
@@ -31,6 +33,44 @@ public class Main {
     private static Instances instances = null;
 
     public static void main(String[] args) throws Exception{
+
+        // Handling input arguments
+        // java -cp "weka.jar" -jar KMeansClustering.jar 3 0.0001 100 n trainBig.arff
+        for (int i = 0; i < args.length; i++) {
+            switch(i){
+                case 0:
+                    numOfClusters = Integer.parseInt(args[0]);
+                    if (numOfClusters <= 0) {
+                        System.out.println("Number of clusters cannot be zero. Using default of 3");
+                        numOfClusters = 3;
+                    }
+                    break;
+                case 1:
+                    epsilon = Double.parseDouble(args[1]);
+                    if (epsilon <= 0.0) {
+                        System.out.println("Invalid epsilon. Using default of 0.0001");
+                        epsilon = 0.0001;
+                    }
+                    break;
+                case 2:
+                    maxIterations = Integer.parseInt(args[2]);
+                    if (maxIterations <= 0) {
+                        System.out.println("Number of max iterations cannot be zero. Using default of 100");
+                        maxIterations = 100;
+                    }
+                    break;
+                case 3:
+                    compareToWekaSimpleKMeans = args[3].equalsIgnoreCase("y");
+                    if (!args[3].equalsIgnoreCase("y") && !args[3].equalsIgnoreCase("n")) {
+                        System.out.println("Invalid input for runtime testing. Using default answer (n).");
+                    }
+                    break;
+                case 4:
+                    inputFilePath = args[4];
+                    break;
+            }
+        }
+
         grabData(inputFilePath);
 
         if (data == null || instances == null) {
@@ -38,37 +78,18 @@ public class Main {
             return;
         }
 
+        String outputFilePath = inputFilePath.substring(0,inputFilePath.length()-5) + "Results.txt";
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilePath, true));
+        writer.append("");
+        writer.newLine();
+
+        // Run clustering and algorithm
         KMeans();
 
-        System.out.println("Number of iterations: " + numIterations);
-        System.out.println("Number of clusters: " + numOfClusters + "\n");
-        System.out.println("Initial starting points:");
-        for (int i = 0; i < initialClusterCentroids.size(); i++) {
-            System.out.println("Cluster " + i + ": " + initialClusterCentroids.instance(i).toString());
-        }
-        System.out.println("\nNOTE: Our implementation and Weka will have the same starting clusters as long as we use the same seed for generating the random indices.");
+        writeResults(writer);
 
-        System.out.println("\nFinal cluster centroids:");
-        for (int i = 0; i < initialClusterCentroids.size(); i++) {
-            System.out.println("Cluster " + i + ": " + clusterCentroids.instance(i).toString());
-        }
-        System.out.println("\nFinal cluster sizes: " + Arrays.toString(clusterSizes));
-        System.out.println("Individual cluster SSEs: " + Arrays.toString(squaredErrors));
-        System.out.println("Total sum of squared errors: " + SSE);
-        System.out.println("");
-
-        if (compareToWekaSimpleKMeans) {
-            SimpleKMeans kMeans = new SimpleKMeans();
-            kMeans.setDoNotCheckCapabilities(true);
-            kMeans.setSeed(seed);
-            kMeans.setNumClusters(numOfClusters);
-            kMeans.setDistanceFunction(new EuclideanDistance());
-            kMeans.buildClusterer(instances);
-
-            System.out.println("======================================================\nWEKA\n======================================================");
-            System.out.println(kMeans.toString());
-            System.out.println("Difference between our SSE and Weka: " + Math.abs(kMeans.getSquaredError() - SSE));
-        }
+        System.out.println("Program complete. You'll find the results in " + outputFilePath);
+        System.out.println("Recommend NOT opening with regular Notepad. The formatting will be hard to read.");
     }
 
     /**
@@ -307,5 +328,73 @@ public class Main {
         }
 
         return (double)val;
+    }
+
+    private static void writeResults(@NotNull BufferedWriter writer) throws Exception {
+        writer.append("Input file: ").append(inputFilePath);
+        writer.newLine();
+        writer.append("Number of instances: ").append(String.valueOf(numInstances));
+        writer.newLine();
+        writer.append("Number of attributes: ").append(String.valueOf(numAttributes));
+        writer.newLine();
+        writer.append("Number of iterations: ").append(String.valueOf(numIterations));
+        writer.newLine();
+        writer.append("Number of clusters: ").append(String.valueOf(numOfClusters));
+        writer.newLine();
+        writer.newLine();
+        writer.append("Initial starting points:");
+        writer.newLine();
+        for (int i = 0; i < initialClusterCentroids.size(); i++) {
+            writer.append("Cluster ").append(String.valueOf(i)).append(": ").append(initialClusterCentroids.instance(i).toString());
+            writer.newLine();
+        }
+        writer.newLine();
+        writer.append("NOTE: Our implementation and Weka will have the same starting clusters as long as we use the same seed for generating the random indices.");
+        writer.newLine();
+
+        writer.newLine();
+        writer.append("Final cluster centroids:");
+        writer.newLine();
+        for (int i = 0; i < initialClusterCentroids.size(); i++) {
+            writer.append("Cluster ").append(String.valueOf(i)).append(": ").append(clusterCentroids.instance(i).toString());
+            writer.newLine();
+        }
+
+        writer.newLine();
+        writer.append("Final cluster sizes: ").append(Arrays.toString(clusterSizes));
+        writer.newLine();
+        writer.append("Individual cluster SSEs: ").append(Arrays.toString(squaredErrors));
+        writer.newLine();
+        writer.append("Total sum of squared errors: ").append(String.valueOf(SSE));
+        writer.newLine();
+        writer.newLine();
+
+        if (compareToWekaSimpleKMeans) {
+            SimpleKMeans kMeans = new SimpleKMeans();
+            kMeans.setDoNotCheckCapabilities(true);
+            kMeans.setSeed(seed);
+            kMeans.setNumClusters(numOfClusters);
+            kMeans.setDistanceFunction(new EuclideanDistance());
+            kMeans.buildClusterer(instances);
+
+            writer.append("======================================================");
+            writer.newLine();
+            writer.append("WEKA");
+            writer.newLine();
+            writer.append("======================================================");
+            writer.newLine();
+
+            writer.append(kMeans.toString());
+            writer.append("Difference between our SSE and Weka: ").append(String.valueOf(Math.abs(kMeans.getSquaredError() - SSE)));
+            writer.newLine();
+            writer.append("========================================================================================================");
+            writer.newLine();
+            writer.append("END OF PROGRAM RUN");
+            writer.newLine();
+            writer.append("========================================================================================================");
+            writer.newLine();
+        }
+
+        writer.close();
     }
 }
