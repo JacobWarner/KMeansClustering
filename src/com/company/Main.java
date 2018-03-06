@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.sun.istack.internal.NotNull;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartUtilities;
 import org.jfree.chart.JFreeChart;
@@ -30,7 +29,7 @@ public class Main {
     private static int maxIterations = 100;
     private static int seed = 10;
     private static boolean compareToWekaSimpleKMeans = true;
-    private static boolean createCharts = false;
+    private static boolean createCharts = true;
 
     private static Instances clusterCentroids;
     private static Instances initialClusterCentroids;
@@ -38,6 +37,7 @@ public class Main {
     private static double[] squaredErrors;
     private static double[] clusterSizes;
     private static double SSE = 0;
+    private static double timeTaken = 0;
 
     // Data gathered from input file
     private static int numAttributes;
@@ -107,15 +107,19 @@ public class Main {
         writer.newLine();
 
         // Run clustering and algorithm
+        long startTime = System.nanoTime();
         KMeans();
-
-        if (createCharts) {
-            testRuntimeOfProgram();
-        }
+        long endTime = System.nanoTime();
+        timeTaken = ((double) (endTime-startTime)) / 1E9;
 
         writeResults();
         if (writer != null) {
             writer.close();
+        }
+
+        if (createCharts) {
+            System.out.println("Creating charts...");
+            testRuntimeOfProgram();
         }
 
         System.out.println("Program complete. You'll find the results in " + outputFilePath);
@@ -159,7 +163,7 @@ public class Main {
 
         int index;
         double[] oldSSEs;
-        int[] clusterAssignments = new int[newData.numInstances()];
+        int[] clusterAssignments = new int[numInstances];
         HashMap<Integer, Instance> initialClusters = new HashMap<>();
         Instances[] tempClusters = new Instances[numOfClusters];
 
@@ -167,7 +171,7 @@ public class Main {
 
         // Randomly choose starting instances/clusters using the default seed of 10
         Random random = new Random(seed);
-        for (int i = newData.numInstances() - 1; i >= 0; i--) {
+        for (int i = numInstances - 1; i >= 0; i--) {
             index = random.nextInt(i+1);
             Instance instance = newData.instance(index);
 
@@ -189,7 +193,7 @@ public class Main {
             squaredErrors = new double[numOfClusters];
             numIterations++;
 
-            for (int i = 0; i < newData.numInstances(); i++) {
+            for (int i = 0; i < numInstances; i++) {
                 Instance inst = newData.instance(i);
                 clusterAssignments[i] = findBestCluster(inst);
             }
@@ -201,7 +205,7 @@ public class Main {
             }
 
             // Adding the instances to their respective clusters
-            for (int i = 0; i < newData.numInstances(); i++) {
+            for (int i = 0; i < numInstances; i++) {
                 tempClusters[clusterAssignments[i]].add(newData.instance(i));
             }
 
@@ -371,6 +375,8 @@ public class Main {
         writer.newLine();
         writer.append("Number of clusters: ").append(String.valueOf(numOfClusters));
         writer.newLine();
+        writer.append("Time taken (in seconds): ").append(String.format("%.5f", timeTaken));
+        writer.newLine();
         writer.newLine();
         writer.append("Initial starting points:");
         writer.newLine();
@@ -429,6 +435,11 @@ public class Main {
     private static void testRuntimeOfProgram() throws Exception {
         ConcurrentHashMap<Integer, Double> NumClustersVsRuntime = new ConcurrentHashMap<>();
         ConcurrentHashMap<Integer, Double> NumClustersVsSse = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Integer, Double> NumInstancesVsRuntime = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Integer, Double> NumAttributesVsRuntime = new ConcurrentHashMap<>();
+
+        inputFilePath = "trainBig.arff";
+        grabData(inputFilePath);
 
         int maxClusters = 30;
         int minClusters = 1;
@@ -452,6 +463,44 @@ public class Main {
 
         createRuntimeChart(NumClustersVsRuntime, maxClusters);
         createErrorToClustersChart(NumClustersVsSse, maxClusters);
+
+        int maxInstances = 32000;
+        int minInstances = 8000;
+
+        while (minInstances <= maxInstances) {
+            numInstances = minInstances;
+
+            // Tracking runtime of KMeans (default epsilon = 0.0001 and maxIterations = 100)
+            startTime = System.nanoTime();
+            KMeans();
+            endTime = System.nanoTime();
+            timeInSeconds = ((double) (endTime-startTime)) / 1E9;
+            NumInstancesVsRuntime.put(numInstances, timeInSeconds);
+
+            minInstances += 8000;
+        }
+
+        numInstances = maxInstances;
+        createRuntimeChartvsDataset(NumInstancesVsRuntime, maxInstances);
+
+        Instances instancesCopy = new Instances(instances);
+        int copyNumAttributes = numAttributes;
+
+        while (numAttributes > 1) {
+            instances.deleteAttributeAt(0);
+            numAttributes = instances.numAttributes();
+
+            // Tracking runtime of KMeans (default epsilon = 0.0001 and maxIterations = 100)
+            startTime = System.nanoTime();
+            KMeans();
+            endTime = System.nanoTime();
+            timeInSeconds = ((double) (endTime-startTime)) / 1E9;
+            NumAttributesVsRuntime.put(numAttributes, timeInSeconds);
+        }
+
+        numAttributes = copyNumAttributes;
+        instances = new Instances(instancesCopy);
+        createRuntimeChartvsAttribute(NumAttributesVsRuntime, numAttributes);
     }
 
     private static void createRuntimeChart(ConcurrentHashMap<Integer, Double> NumClustersVsRuntime, int maxClusters) throws IOException {
@@ -508,6 +557,62 @@ public class Main {
         int width = 960;    /* Width of the image */
         int height = 720;   /* Height of the image */
         File lineChart = new File( "SseVsClusterNumber.jpeg" );
+        ChartUtilities.saveChartAsJPEG(lineChart ,lineChartObject, width ,height);
+    }
+
+    private static void createRuntimeChartvsDataset(ConcurrentHashMap<Integer, Double> NumInstancesVsRuntime, int numInstances) throws IOException {
+        DefaultCategoryDataset lineChartData = new DefaultCategoryDataset();
+
+        for (int i = 8000; i <= numInstances; i+=8000) {
+
+            // Plotting runtime vs number of instances
+            lineChartData.addValue(NumInstancesVsRuntime.get(i), "Time", String.format("%d", i));
+
+        }
+
+        JFreeChart lineChartObject = ChartFactory.createLineChart(
+                "Runtime vs Num of Instances","# Instances",
+                "Runtime (seconds)",
+                lineChartData, PlotOrientation.VERTICAL,
+                false,false,false);
+
+        CategoryPlot plot = lineChartObject.getCategoryPlot();
+        NumberAxis range = (NumberAxis)plot.getRangeAxis();
+        range.setLowerBound(0.0);
+
+        lineChartObject.setBorderStroke(new BasicStroke(0.7f));
+
+        int width = 960;    /* Width of the image */
+        int height = 720;   /* Height of the image */
+        File lineChart = new File( "RuntimeVsNumberOfInstances.jpeg" );
+        ChartUtilities.saveChartAsJPEG(lineChart ,lineChartObject, width ,height);
+    }
+
+    private static void createRuntimeChartvsAttribute(ConcurrentHashMap<Integer, Double> numAttributesVsRuntime, int numAttribute ) throws IOException {
+        DefaultCategoryDataset lineChartData = new DefaultCategoryDataset();
+
+        for (int i = 1; i <= numAttribute; i++) {
+
+            // Plotting runtime vs number of attributes
+            lineChartData.addValue(numAttributesVsRuntime.get(i), "Time", String.format("%d", i));
+
+        }
+
+        JFreeChart lineChartObject = ChartFactory.createLineChart(
+                "Runtime vs Num of Attribute","# Attribute",
+                "Runtime (seconds)",
+                lineChartData, PlotOrientation.VERTICAL,
+                false,false,false);
+
+        CategoryPlot plot = lineChartObject.getCategoryPlot();
+        NumberAxis range = (NumberAxis)plot.getRangeAxis();
+        range.setLowerBound(0.0);
+
+        lineChartObject.setBorderStroke(new BasicStroke(0.7f));
+
+        int width = 960;    /* Width of the image */
+        int height = 720;   /* Height of the image */
+        File lineChart = new File( "RuntimeVsNumberOfAttributes.jpeg" );
         ChartUtilities.saveChartAsJPEG(lineChart ,lineChartObject, width ,height);
     }
 }
