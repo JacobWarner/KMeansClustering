@@ -1,0 +1,12 @@
+To start the program, run the following from the home directory via command line:
+
+	java -cp "jcommon.jar:jfreechart.jar:weka.jar:" -jar KMeansClustering.jar <numClusters> <epsilon> <maxIterations> <compareToWeka(y/n)> <createCharts(y/n)> <inputFile>
+
+
+To run the default settings, run:
+
+	java -cp "jcommon.jar:jfreechart.jar:weka.jar:" -jar KMeansClustering.jar
+	
+which is equivalent to
+	
+	java -cp "jcommon.jar:jfreechart.jar:weka.jar:" -jar KMeansClustering.jar 3 0.0001 100 y n trainBig.arff

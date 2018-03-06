@@ -29,7 +29,7 @@ public class Main {
     private static int maxIterations = 100;
     private static int seed = 10;
     private static boolean compareToWekaSimpleKMeans = true;
-    private static boolean createCharts = true;
+    private static boolean createCharts = false;
 
     private static Instances clusterCentroids;
     private static Instances initialClusterCentroids;
